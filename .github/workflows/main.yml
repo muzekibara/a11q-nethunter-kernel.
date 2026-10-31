@@ -1,0 +1,68 @@
+name: A11Q Kernel Build Preparation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison flex build-essential \
+            libssl-dev libelf-dev python3 \
+            git cpio rsync
+
+      - name: Inspect kernel source
+        run: |
+          echo "===== SOURCE ROOT ====="
+          ls -la
+
+          echo "===== KERNEL VERSION ====="
+          head -40 Makefile
+
+          echo "===== A11 CONFIGS ====="
+          find arch/arm64/configs -type f \
+            | grep -Ei 'a11|a115|qcom' || true
+
+          echo "===== PRIMA BUILD FILES ====="
+          find drivers/staging/prima -maxdepth 4 \
+            \( -name Makefile -o -name Kconfig \
+            -o -name Android.mk \) -print
+
+          echo "===== WLAN CONFIG OPTIONS ====="
+          grep -RniE 'WCNSS|PRIMA|CFG80211|MAC80211' \
+            drivers/staging/prima/Kconfig \
+            drivers/staging/prima/Makefile \
+            2>/dev/null || true
+
+          echo "===== TOOLCHAIN REFERENCES ====="
+          grep -RniE 'clang|CROSS_COMPILE|LLVM' \
+            build.config* Makefile 2>/dev/null || true
+
+      - name: Save inspection report
+        if: always()
+        run: |
+          {
+            echo "A11Q kernel source inspection"
+            echo "Commit: $(git rev-parse HEAD)"
+            echo "Branch: $(git branch --show-current)"
+            echo "Prima source:"
+            find drivers/staging/prima -maxdepth 3 -type f \
+              | head -100
+          } > a11q-report.txt
+
+      - name: Upload inspection report
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11q-source-report
+          path: a11q-report.txt

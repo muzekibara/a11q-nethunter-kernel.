@@ -1,0 +1,6 @@
+      - name: Checkout Samsung A11Q kernel source
+        uses: actions/checkout@v4
+        with:
+          repository: mohammad92/android_kernel_samsung_a11q
+          path: kernel
+          fetch-depth: 1
